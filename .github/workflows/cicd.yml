@@ -1,64 +1,68 @@
 name: EKS Production CI/CD
 
 on:
- workflow_dispatch:
+  workflow_dispatch:
 
 jobs:
- deploy:
-  runs-on: ubuntu-latest
+  deploy:
+    runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        working-directory: ./k8s_production
 
-  steps:
-  - name: Checkout repository
-    uses: actions/checkout@v4
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-  - name: Configure AWS credentials
-    uses: aws-actions/configure-aws-credentials@v4
-    with:
-     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-     aws-region: us-east-1
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
 
-  - name: Setup Terraform
-    uses: hashicorp/setup-terraform@v3
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
 
-# Initialize terraform with remote state
-  - name: Terraform Init
-    run: terraform init
+    - name: Terraform Init
+      run: terraform init
 
-# Check if any infrastructure change is required
-  - name: Terraform Plan
-    run: terraform plan -out=tfplan
+    - name: Terraform Format
+      run: terraform fmt -check
 
-# Apply only if changes exist (prevents recreating VPC/EKS/ECR)
-  - name: Terraform Apply
-    run: terraform apply -auto-approve tfplan
+    - name: Terraform Validate
+      run: terraform validate
 
-  - name: Login to ECR
-    run: |
-     ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-     aws ecr get-login-password --region us-east-1 | \
-     docker login --username AWS --password-stdin \
-     $ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com
+    - name: Terraform Plan
+      run: terraform plan -out=tfplan
 
-  - name: Build and Push Docker Image
-    run: |
-     ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-     IMAGE=$ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mahakal-nginx-repo:latest
-     docker pull nginx
-     docker tag nginx:latest $IMAGE
-     docker push $IMAGE
-     echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+    - name: Terraform Apply
+      run: terraform apply -auto-approve tfplan
 
-  - name: Configure kubectl
-    run: aws eks update-kubeconfig --name mahakal-cluster --region us-east-1
+    - name: Login to ECR
+      run: |
+        ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+        aws ecr get-login-password --region us-east-1 | \
+        docker login --username AWS --password-stdin \
+        $ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com
 
-  - name: Deploy Kubernetes Resources
-    run: |
-     kubectl apply -f k8s/namespace.yml
-     kubectl apply -f k8s/deployment.yml
-     kubectl apply -f k8s/service.yml
-     kubectl apply -f k8s/ingress.yml 
-     kubectl apply -f k8s/hpa.yml
+    - name: Build and Push Docker Image
+      run: |
+        ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+        IMAGE=$ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/mahakal-nginx-repo:latest
+        docker pull nginx
+        docker tag nginx:latest $IMAGE
+        docker push $IMAGE
+        echo "IMAGE=$IMAGE" >> $GITHUB_ENV
 
-     
+    - name: Configure kubectl
+      run: aws eks update-kubeconfig --name mahakal-cluster --region us-east-1
+
+    - name: Deploy Kubernetes Resources
+      run: |
+        kubectl apply -f k8s/namespace.yml
+        kubectl apply -f k8s/deployment.yml
+        kubectl apply -f k8s/service.yml
+        kubectl apply -f k8s/ingress.yml
+        kubectl apply -f k8s/hpa.yml
