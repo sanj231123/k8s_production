@@ -9,10 +9,17 @@ terraform {
   }
 
   backend "s3" {
+<<<<<<< HEAD
     bucket         = "mahakal-bucket-sanjay-2026"   # your S3 bucket name
     key            = "eks/dev/terraform.tfstate"    # state file path
     region         = "us-east-1"
     dynamodb_table = "terraform-lock-table"         # your DynamoDB table
+=======
+    bucket         = "mahakal-bucket-sanjay-2026" # your S3 bucket name
+    key            = "eks/dev/terraform.tfstate"  # state file path
+    region         = "us-east-1"
+    dynamodb_table = "terraform-lock-table" # your DynamoDB table
+>>>>>>> f616540 (fix terraform formatting)
     encrypt        = true
   }
 }
