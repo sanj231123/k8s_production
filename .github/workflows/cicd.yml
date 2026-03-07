@@ -7,10 +7,6 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: ./k8s_production
-
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
